@@ -8,20 +8,35 @@ contract Escrow {
 
 	bool public isApproved;
 
+	event Approved(uint);
+
+	error Unauthorized();
+	error FailedToSendEther();
+
+	modifier onlyArbiter {
+		if (msg.sender != arbiter) {
+			revert Unauthorized();
+		}
+
+		_;
+	}
+
 	constructor(address _arbiter, address _beneficiary) payable {
 		arbiter = _arbiter;
 		beneficiary = _beneficiary;
 		depositor = msg.sender;
 	}
 
-	event Approved(uint);
 
-	function approve() external {
-		require(msg.sender == arbiter);
-		uint balance = address(this).balance;
-		(bool sent, ) = payable(beneficiary).call{value: balance}("");
- 		require(sent, "Failed to send Ether");
-		emit Approved(balance);
+	function approve() external onlyArbiter {
 		isApproved = true;
+		uint balance = address(this).balance;
+		
+		emit Approved(balance);
+		
+		(bool sent, ) = beneficiary.call{value: balance}("");
+		if (!sent) {
+			revert FailedToSendEther();
+		}
 	}
 }
